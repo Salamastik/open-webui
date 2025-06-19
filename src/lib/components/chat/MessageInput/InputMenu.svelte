@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { DropdownMenu } from 'bits-ui';
-	import { flyAndScale } from '$lib/utils/transitions';
 	import { getContext, onMount, tick } from 'svelte';
 	import { config, user, tools as _tools, mobile } from '$lib/stores';
 	import { getRAGConfig } from '$lib/apis/retrieval';
-
+	import { getWarningContent } from '$lib/utils/warning';
+	import { flyAndScale } from '$lib/utils/transitions';
 	import { createPicker } from '$lib/utils/google-drive-picker';
-
 	import { getTools } from '$lib/apis/tools';
-
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import DocumentArrowUpSolid from '$lib/components/icons/DocumentArrowUpSolid.svelte';
@@ -20,82 +18,63 @@
 	import CommandLineSolid from '$lib/components/icons/CommandLineSolid.svelte';
 
 	const i18n = getContext('i18n');
+	const WARNING_KEY = 'upload_warning_dismissed_until';
+	const PARSER_TOGGLE_KEY = 'parser_toggle_state';
 
+	// Props
 	export let selectedToolIds: string[] = [];
-
 	export let selectedModels: string[] = [];
 	export let fileUploadCapableModels: string[] = [];
-
 	export let screenCaptureHandler: Function;
 	export let uploadFilesHandler: Function;
 	export let inputFilesHandler: Function;
-
 	export let uploadGoogleDriveHandler: Function;
 	export let uploadOneDriveHandler: Function;
-
 	export let onClose: Function;
 
+	// State variables
 	let tools = {};
 	let show = false;
 	let showAllTools = false;
 	let showUploadWarning = false;
 	let dontShowAgain = false;
 	let contentExtractionEngine = '';
-
-	const WARNING_KEY = 'upload_warning_dismissed_until';
-
-	const shouldShowWarning = () => {
-		const dismissedUntil = localStorage.getItem(WARNING_KEY);
-		if (!dismissedUntil) return true;
-
-		const now = new Date().getTime();
-		return now > parseInt(dismissedUntil);
-	};
-
-	$: if (show) {
-		init();
-	}
+	let warningContent = '';
+	let isDeepParserEnabled = false;
+	let isToggling = false;
+	let pendingState = null;
 
 	let fileUploadEnabled = true;
 	$: fileUploadEnabled =
 		fileUploadCapableModels.length === selectedModels.length &&
 		($user?.role === 'admin' || $user?.permissions?.chat?.file_upload);
 
-	const init = async () => {
-		if ($_tools === null) {
-			await _tools.set(await getTools(localStorage.token));
-		}
-
-		tools = $_tools.reduce((a, tool, i, arr) => {
-			a[tool.id] = {
-				name: tool.name,
-				description: tool.meta.description,
-				enabled: selectedToolIds.includes(tool.id)
-			};
-			return a;
-		}, {});
-	};
-
+	// Utility functions
 	const detectMobile = () => {
 		const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-		return /android|iphone|ipad|ipod|windows phone/i.test(userAgent);
+		return /android|iphone|ipad|ipod|windows phone/i.test(userAgent.toLowerCase());
 	};
 
-	function handleFileChange(event) {
-		const inputFiles = Array.from(event.target?.files);
-		if (inputFiles && inputFiles.length > 0) {
-			console.log(inputFiles);
-			inputFilesHandler(inputFiles);
+	const shouldShowWarning = () => {
+		const dismissedUntil = localStorage.getItem(WARNING_KEY);
+		if (!dismissedUntil) return true;
+		const now = new Date().getTime();
+		return now > parseInt(dismissedUntil);
+	};
+
+	function handleFileChange(event: Event) {
+		const files = Array.from((event.target as HTMLInputElement)?.files || []);
+		if (files && files.length > 0) {
+			console.log(files);
+			inputFilesHandler(files);
 		}
 	}
 
 	function handleUploadClick() {
 		if (fileUploadEnabled) {
-			// בדוק אם צריך להציג אזהרה
 			if (shouldShowWarning()) {
 				showUploadWarning = true;
 			} else {
-				// אם המשתמש ביקש לא להציג שוב, פתח את העלאת הקבצים ישירות
 				uploadFilesHandler();
 			}
 		}
@@ -103,11 +82,9 @@
 
 	function proceedWithUpload() {
 		if (dontShowAgain) {
-			// Set 24 hour dismissal
 			const dismissUntil = new Date().getTime() + 24 * 60 * 60 * 1000;
 			localStorage.setItem(WARNING_KEY, dismissUntil.toString());
 		}
-
 		showUploadWarning = false;
 		uploadFilesHandler();
 	}
@@ -117,33 +94,11 @@
 			const dismissUntil = new Date().getTime() + 24 * 60 * 60 * 1000;
 			localStorage.setItem(WARNING_KEY, dismissUntil.toString());
 		}
-
 		showUploadWarning = false;
 		dontShowAgain = false;
 	}
 
-	let isDeepParserEnabled = false;
-	let isToggling = false; // משתנה למניעת קריאות מרובות
-	let pendingState = null; // משתנה לשמירת הסטייט הרצוי
-	const PARSER_TOGGLE_KEY = 'parser_toggle_state';
-
-	onMount(async () => {
-		// Load the toggle state from localStorage
-		const savedState = localStorage.getItem(PARSER_TOGGLE_KEY);
-		if (savedState !== null) {
-			isDeepParserEnabled = savedState === 'true';
-		}
-
-		try {
-			const ragConfig = await getRAGConfig(localStorage.token);
-			contentExtractionEngine = ragConfig.CONTENT_EXTRACTION_ENGINE;
-		} catch (error) {
-			console.error('Failed to get RAG config:', error);
-		}
-	});
-
 	async function handleParserToggle(enabled: boolean) {
-
 		if (isToggling) {
 			pendingState = enabled;
 			return;
@@ -153,9 +108,8 @@
 		let currentState = enabled;
 
 		try {
-			// לולאה שתטפל גם בסטייט ממתין
 			do {
-				pendingState = null; // איפוס הסטייט הממתין
+				pendingState = null;
 
 				const response = await fetch('/api/v1/retrieval/process/parser?toggle=' + currentState, {
 					method: 'POST',
@@ -170,15 +124,13 @@
 					localStorage.setItem(PARSER_TOGGLE_KEY, currentState.toString());
 				} else {
 					console.error('Failed to update parser settings');
-					// אם נכשל, אל תעדכן את הסטייט
 					break;
 				}
 
-				// בדוק אם יש סטייט חדש שממתין
 				if (pendingState !== null && pendingState !== currentState) {
 					currentState = pendingState;
 				} else {
-					break; // אין יותר שינויים ממתינים
+					break;
 				}
 			} while (true);
 		} catch (error) {
@@ -188,6 +140,26 @@
 			pendingState = null;
 		}
 	}
+
+	onMount(async () => {
+		try {
+			warningContent = await getWarningContent();
+		} catch (error) {
+			console.error('Failed to load warning content:', error);
+		}
+
+		const savedState = localStorage.getItem(PARSER_TOGGLE_KEY);
+		if (savedState !== null) {
+			isDeepParserEnabled = savedState === 'true';
+		}
+
+		try {
+			const ragConfig = await getRAGConfig(localStorage.token);
+			contentExtractionEngine = ragConfig.CONTENT_EXTRACTION_ENGINE;
+		} catch (error) {
+			console.error('Failed to get RAG config:', error);
+		}
+	});
 </script>
 
 <!-- Hidden file input used to open the camera on mobile -->
@@ -535,83 +507,63 @@
 		}}
 	>
 		<div
-			class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-4 shadow-2xl border border-gray-200 dark:border-gray-700 relative"
+			class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-xl mx-4 shadow-2xl border border-gray-200 dark:border-gray-700 relative prose dark:prose-invert"
 			style="direction: rtl; z-index: 100000;"
 		>
-			<h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-				{$i18n.t('Before Uploading Files - Important Information')}
-			</h3>
-			<div class="space-y-3 mb-6">
-				<div class="flex items-start gap-2">
-					<span class="text-lg">⚠️</span>
-					<p class="text-sm text-gray-700 dark:text-gray-300">
-						{$i18n.t(
-							'Files will be processed and may take some time depending on size and complexity'
-						)}
-					</p>
-				</div>
-
-				<div class="flex items-start gap-2">
-					<span class="text-lg">📝</span>
-					<p class="text-sm text-gray-700 dark:text-gray-300">
-						{$i18n.t('File content will be analyzed and may be used for responses')}
-					</p>
-				</div>
-
-				<div class="flex items-start gap-2">
-					<span class="text-lg">🔒</span>
-					<p class="text-sm text-gray-700 dark:text-gray-300">
-						{$i18n.t('Do not upload sensitive or confidential information unless authorized')}
-					</p>
-				</div>
-
-				<div class="flex items-start gap-2">
-					<span class="text-lg">💡</span>
-					<p class="text-sm text-gray-700 dark:text-gray-300">
-						התאזרו בסבלנות - קבצים גדולים דורשים יותר זמן עיבוד
-					</p>
-				</div>
-				<div class="flex items-start gap-2">
-					<span class="text-lg">🎓</span>
-					<p class="text-sm text-gray-700 dark:text-gray-300">
-						<a
-							href="https://karamaeldocs/docs/rchat/files"
-							class="underline text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
-							target="_blank"
-							rel="noopener noreferrer"
-						>
-							לחצו כאן לצפייה בהדרכה
-						</a>
-					</p>
-				</div>
-			</div>
-
-			<!-- Checkbox "אל תציג שוב" -->
-			<div class="flex items-center gap-2 mb-6">
-				<input
-					type="checkbox"
-					id="dontShowAgain"
-					bind:checked={dontShowAgain}
-					class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-				/>
-				<label for="dontShowAgain" class="text-sm text-gray-700 dark:text-gray-300">
-					אל תציג הודעה זו שוב
-				</label>
-			</div>
-
-			<div class="flex gap-3 justify-end">
+			<div class="flex justify-between items-start mb-4">
+				<h3 class="text-xl font-semibold text-gray-900 dark:text-white m-0">
+					{$i18n.t('Before Uploading Files - Important Information')}
+				</h3>
 				<button
-					class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+					class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
 					on:click={closeWarning}
 				>
-					{$i18n.t('Cancel')}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+					>
+						<path
+							fill-rule="evenodd"
+							d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+							clip-rule="evenodd"
+						/>
+					</svg>
 				</button>
-				<button
-					class="px-4 py-2 bg-gray-700 text-white hover:bg-gray-800 rounded transition-colors"
-					on:click={proceedWithUpload}
-				>
-					{$i18n.t('Continue')}
-				</button>
+			</div>
+
+			<div class="overflow-y-auto max-h-96 prose-sm">
+				{@html warningContent}
+			</div>
+
+			<div class="mt-6 flex items-center justify-between">
+				<div class="flex items-center space-x-2">
+					<input
+						type="checkbox"
+						id="dontShowAgain"
+						bind:checked={dontShowAgain}
+						class="rounded border-gray-300 dark:border-gray-700"
+					/>
+					<label for="dontShowAgain" class="text-sm text-gray-600 dark:text-gray-300">
+						{$i18n.t("Don't show this for 24 hours")}
+					</label>
+				</div>
+
+				<div class="flex space-x-2">
+					<button
+						class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 rounded-lg transition"
+						on:click={closeWarning}
+					>
+						{$i18n.t('Cancel')}
+					</button>
+					<button
+						class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition"
+						on:click={proceedWithUpload}
+					>
+						{$i18n.t('Continue')}
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>

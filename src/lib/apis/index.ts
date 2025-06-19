@@ -1,6 +1,7 @@
 import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 import { convertOpenApiToToolPayload } from '$lib/utils';
 import { getOpenAIModelsDirect } from './openai';
+import { readWarningContent } from './warning';
 
 import { parse } from 'yaml';
 import { toast } from 'svelte-sonner';
@@ -1592,7 +1593,7 @@ export interface ModelMeta {
 	profile_image_url?: string;
 }
 
-export interface ModelParams {}
+export interface ModelParams { }
 
 export type GlobalModelConfig = ModelConfig[];
 
@@ -1625,3 +1626,5 @@ export const updateModelConfig = async (token: string, config: GlobalModelConfig
 
 	return res;
 };
+
+export { readWarningContent };

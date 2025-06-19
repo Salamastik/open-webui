@@ -2,69 +2,33 @@
 	import { onMount, getContext, createEventDispatcher } from 'svelte';
 	import { settings } from '$lib/stores';
 	import Modal from './common/Modal.svelte';
+	import { getWarningContent } from '$lib/utils/warning';
+
+	interface WarningItem {
+		title: string;
+		content: string;
+	}
+
+	interface WarningSection {
+		date?: string;
+		items: WarningItem[];
+	}
+
+	interface Warning {
+		important: WarningSection;
+		note: WarningSection;
+		tips: WarningSection;
+	}
 
 	const i18n = getContext('i18n');
 	const dispatch = createEventDispatcher();
 
 	export let show = false;
 
-	let warning = null;
+	let warning: Warning | null = null;
 
 	onMount(async () => {
-		// No need for API call as warning content is static
-		warning = {
-			important: {
-				date: '2025-06-12',
-				items: [
-					{
-						title: 'Size Limitations',
-						content: 'Files larger than the configured size limit will be rejected'
-					},
-					{
-						title: 'Supported Extensions',
-						content: 'Only certain file types are supported for upload'
-					},
-					{
-						title: 'Confidentiality',
-						content: 'Be careful when uploading sensitive files'
-					},
-					{
-						title: 'File Processing',
-						content: 'Large files may take longer to process'
-					}
-				]
-			},
-			note: {
-				date: '2025-06-12',
-				items: [
-					{
-						title: 'System Processing',
-						content: 'All uploaded files will be analyzed and processed by the system'
-					},
-					{
-						title: 'Usage Notice',
-						content: 'Files may be used for AI model training and improvement'
-					}
-				]
-			},
-			tips: {
-				date: '2025-06-12',
-				items: [
-					{
-						title: 'Performance',
-						content: 'For best performance, optimize files before uploading'
-					},
-					{
-						title: 'Size Check',
-						content: 'Check file size before attempting an upload'
-					},
-					{
-						title: 'Security',
-						content: "Ensure files don't contain sensitive information"
-					}
-				]
-			}
-		};
+		warning = await getWarningContent();
 	});
 
 	function handleConfirm() {
