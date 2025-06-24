@@ -16,6 +16,7 @@
 	import CameraSolid from '$lib/components/icons/CameraSolid.svelte';
 	import PhotoSolid from '$lib/components/icons/PhotoSolid.svelte';
 	import CommandLineSolid from '$lib/components/icons/CommandLineSolid.svelte';
+	import WarningModal from '$lib/components/WarningModal.svelte';
 
 	const i18n = getContext('i18n');
 	const WARNING_KEY = 'upload_warning_dismissed_until';
@@ -75,7 +76,7 @@
 			if (shouldShowWarning()) {
 				showUploadWarning = true;
 			} else {
-				uploadFilesHandler();
+				openFileUploadDialog();
 			}
 		}
 	}
@@ -86,7 +87,19 @@
 			localStorage.setItem(WARNING_KEY, dismissUntil.toString());
 		}
 		showUploadWarning = false;
-		uploadFilesHandler();
+		openFileUploadDialog();
+	}
+
+	function openFileUploadDialog() {
+		const fileInput = document.getElementById('file-upload-input') as HTMLInputElement;
+		if (fileInput) {
+			// Reset the value so selecting the same file twice works
+			fileInput.value = '';
+			// Use setTimeout to ensure the modal closes before opening the file dialog
+			setTimeout(() => {
+				fileInput.click();
+			}, 0);
+		}
 	}
 
 	function closeWarning() {
@@ -168,6 +181,14 @@
 	type="file"
 	accept="image/*"
 	capture="environment"
+	on:change={handleFileChange}
+	style="display: none;"
+/>
+<!-- Hidden file input for file uploads -->
+<input
+	id="file-upload-input"
+	type="file"
+	multiple
 	on:change={handleFileChange}
 	style="display: none;"
 />
@@ -494,80 +515,16 @@
 </Dropdown>
 
 <!-- Added-->
-<!-- Added-->
-{#if showUploadWarning}
-	<div
-		class="fixed top-0 left-0 w-full h-full backdrop-blur-sm flex items-center justify-center"
-		style="z-index: 99999; position: fixed !important;"
-		on:outroend={() => {
-			document.body.classList.remove('popup-active');
-		}}
-		on:introstart={() => {
-			document.body.classList.add('popup-active');
-		}}
-	>
-		<div
-			class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-xl mx-4 shadow-2xl border border-gray-200 dark:border-gray-700 relative prose dark:prose-invert"
-			style="direction: rtl; z-index: 100000;"
-		>
-			<div class="flex justify-between items-start mb-4">
-				<h3 class="text-xl font-semibold text-gray-900 dark:text-white m-0">
-					{$i18n.t('Before Uploading Files - Important Information')}
-				</h3>
-				<button
-					class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-					on:click={closeWarning}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-					>
-						<path
-							fill-rule="evenodd"
-							d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-				</button>
-			</div>
-
-			<div class="overflow-y-auto max-h-96 prose-sm">
-				{@html warningContent}
-			</div>
-
-			<div class="mt-6 flex items-center justify-between">
-				<div class="flex items-center space-x-2">
-					<input
-						type="checkbox"
-						id="dontShowAgain"
-						bind:checked={dontShowAgain}
-						class="rounded border-gray-300 dark:border-gray-700"
-					/>
-					<label for="dontShowAgain" class="text-sm text-gray-600 dark:text-gray-300">
-						{$i18n.t("Don't show this for 24 hours")}
-					</label>
-				</div>
-
-				<div class="flex space-x-2">
-					<button
-						class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 rounded-lg transition"
-						on:click={closeWarning}
-					>
-						{$i18n.t('Cancel')}
-					</button>
-					<button
-						class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition"
-						on:click={proceedWithUpload}
-					>
-						{$i18n.t('Continue')}
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
+<WarningModal
+	bind:show={showUploadWarning}
+	on:confirm={() => {
+		showUploadWarning = false;
+		setTimeout(() => {
+			openFileUploadDialog();
+		}, 200);
+	}}
+	on:close={closeWarning}
+/>
 
 <style>
 	:global(body.popup-active) {
