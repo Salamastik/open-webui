@@ -2136,15 +2136,22 @@
 									onChange={(input) => {
 										if (!$temporaryChatEnabled) {
 											if (input.prompt !== null) {
-												localStorage.setItem(
-													`chat-input${$chatId ? `-${$chatId}` : ''}`,
-													JSON.stringify(input)
-												);
+												// --- added ---
+												try {
+													localStorage.setItem(
+														`chat-input${$chatId ? `-${$chatId}` : ''}`,
+														JSON.stringify(input)
+													);
+												} catch (e) {
+													console.warn('Failed to save input to localStorage:', e);
+													toast.error($i18n.t('הקובץ מורכב מדי ולא נקלט'));
+				
+												}
 											} else {
 												localStorage.removeItem(`chat-input${$chatId ? `-${$chatId}` : ''}`);
 											}
 										}
-									}}
+									}}							
 									on:upload={async (e) => {
 										const { type, data } = e.detail;
 

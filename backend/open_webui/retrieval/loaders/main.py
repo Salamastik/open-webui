@@ -105,7 +105,7 @@ class TikaLoader:
             headers = {"Content-Type": self.mime_type}
         else:
             headers = {}
-
+        print(f"Extracting images: {self.extract_images}")
         if self.extract_images == True:
             headers["X-Tika-PDFextractInlineImages"] = "true"
 
@@ -235,18 +235,14 @@ class Loader:
         # --- Added ---
         use_tika: bool= os.environ.get('PARSER_TIKA_TOGGLE', PARSER_TIKA_TOGGLE)
 
-        # print(f"@@@@@@@@@@ use_tika: {use_tika} @@@@@@@@@@@@@@@@@@@@")
-        # print(f"%%%%%%%%%% file_ext: {file_ext} %%%%%%%%")
-        # print(f"********** use parser: {self.engine} **********")
+
         log.info("Choosed engine: %s", self.engine)
         if self.engine == 'mix_tika_docling':
-            # print(f"??????????????? before self.engine: {self.engine} ???????????")
             if use_tika == "true":
                 self.engine = "tika" 
             else: 
                 self.engine = "docling"
             log.info("Updated engine to : %s", self.engine)
-            # print(f"!!!!!!!!!!!! after self.engine: {self.engine} !!!!!!!!!!")
         #  --- End ---
         if (
             self.engine == "external"
@@ -415,5 +411,5 @@ class Loader:
                 loader = TextLoader(file_path, autodetect_encoding=True)
             else:
                 loader = TextLoader(file_path, autodetect_encoding=True)
-
+        
         return loader

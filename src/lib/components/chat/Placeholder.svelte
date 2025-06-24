@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import { marked } from 'marked';
+	import { set as idbSet, get as idbGet, del as idbDel } from 'idb-keyval'; // --- added ---
 
 	import { onMount, getContext, tick, createEventDispatcher } from 'svelte';
 	import { blur, fade } from 'svelte/transition';
@@ -42,6 +43,7 @@
 
 	export let toolServers = [];
 
+	let ignoreNextChange = false; // --- added ---
 	let models = [];
 
 	const selectSuggestionPrompt = async (p) => {
@@ -215,13 +217,38 @@
 					{stopResponse}
 					{createMessagePair}
 					placeholder={$i18n.t('How can I help you today?')}
-					onChange={(input) => {
+					onChange={async (input) => { // --- added ---
+						if (ignoreNextChange) {
+							ignoreNextChange = false;
+							return;
+						}
 						if (!$temporaryChatEnabled) {
 							if (input.prompt !== null) {
-								localStorage.setItem(`chat-input`, JSON.stringify(input));
+								const str = JSON.stringify(input);
+								try {
+									localStorage.setItem('chat-input', str);
+								} catch (e) {
+									// localStorage full, fallback to IndexedDB
+									try {
+										await idbSet('chat-input', str);
+										if (!sessionStorage.getItem('indexeddb-toast-shown')) {
+											toast.warning(
+												$i18n.t('עקב מגבלת גודל, הקובץ נשמר בצורה שונה וייתכנו חוסרים או אי־דיוקים')
+											);
+											sessionStorage.setItem('indexeddb-toast-shown', '1');
+										}
+									} catch (err) {
+										console.warn('Failed to save input to IndexedDB:', err);
+										ignoreNextChange = true;
+										prompt = '';
+										files = [];
+										toast.error($i18n.t('הקובץ מורכב מדי ולא נשמר'));
+									}
+								}
 							} else {
-								localStorage.removeItem(`chat-input`);
-							}
+								localStorage.removeItem('chat-input');
+								await idbDel('chat-input');
+							} // --- end ---
 						}
 					}}
 					on:upload={(e) => {
