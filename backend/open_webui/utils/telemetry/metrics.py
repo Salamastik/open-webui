@@ -19,8 +19,12 @@ from __future__ import annotations
 
 import time
 from typing import Dict, List, Sequence, Any
+import asyncio
+import httpx
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
     OTLPMetricExporter,
@@ -34,6 +38,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 from open_webui.env import OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT
 
+from open_webui.routers.users import get_users
 
 _EXPORT_INTERVAL_MILLIS = 10_000  # 10 seconds
 
@@ -85,6 +90,34 @@ def setup_metrics(app: FastAPI) -> None:
         name="http.server.duration",
         description="HTTP request duration",
         unit="ms",
+    )
+
+    # Active users in the last hour (ObservableGauge)
+    def get_active_users_last_hour_callback(options):
+        try:
+            # get_users is async, so we must run it in a sync context
+            import asyncio
+
+            users_response = asyncio.run(get_users(user=None))
+            users = users_response.get("users", []) if isinstance(users_response, dict) else []
+            now = int(time.time())
+            one_hour_ago = now - 3600
+            active_count = 0
+            for user in users:
+                user_dict = jsonable_encoder(user)
+                last_active_at = user_dict.get("last_active_at")
+                print(now, "   now", last_active_at, "   last_active_at", one_hour_ago, "   one_hour_ago")
+                if isinstance(last_active_at, int) and last_active_at >= one_hour_ago:
+                    active_count += 1
+            return [metrics.Observation(active_count)]
+        except Exception:
+            return [metrics.Observation(0)]
+
+    meter.create_observable_gauge(
+        name="active_users_last_hour",
+        callbacks=[get_active_users_last_hour_callback],
+        description="Number of users active in the last hour",
+        unit="1",
     )
 
     # FastAPI middleware
