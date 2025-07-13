@@ -200,6 +200,10 @@
 			</div>
 
 			<div class="text-base font-normal @md:max-w-3xl w-full py-3 {atSelectedModel ? 'mt-2' : ''}">
+				<!-- ADDED -->
+				<div class="w-full text-center text-gray-500 dark:text-gray-400">
+					{@html marked.parse(sanitizeResponseContent($config?.landing_page_content ?? ''))}
+				</div>
 				<MessageInput
 					{history}
 					{selectedModels}

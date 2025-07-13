@@ -239,6 +239,20 @@ for version in soup.find_all("h2"):
 
 WARNING = warning_json
 
+
+## ADDED
+try:
+    landing_page_path = BASE_DIR / "LANDING_PAGE.md"
+    with open(str(landing_page_path.absolute()), "r", encoding="utf8") as file:
+        landing_page_content = file.read()
+
+except Exception:
+    landing_page_content = (pkgutil.get_data("open_webui", "LANDING_PAGE.md") or b"").decode()
+
+LANDING_PAGE_CONTENT = landing_page_content
+## ADDED
+
+
 ####################################
 # SAFE_MODE
 ####################################
