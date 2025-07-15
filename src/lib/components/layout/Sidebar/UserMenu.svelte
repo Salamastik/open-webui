@@ -46,7 +46,7 @@
 			align="start"
 			transition={(e) => fade(e, { duration: 100 })}
 		>
-			<button
+			<DropdownMenu.Item
 				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 				on:click={async () => {
 					await showSettings.set(true);
@@ -79,9 +79,9 @@
 					</svg>
 				</div>
 				<div class=" self-center truncate">{$i18n.t('Settings')}</div>
-			</button>
+			</DropdownMenu.Item>
 
-			<button
+			<DropdownMenu.Item
 				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 				on:click={() => {
 					dispatch('show', 'archived-chat');
@@ -96,18 +96,17 @@
 					<ArchiveBox className="size-5" strokeWidth="1.5" />
 				</div>
 				<div class=" self-center truncate">{$i18n.t('Archived Chats')}</div>
-			</button>
+			</DropdownMenu.Item>
 
 			{#if role === 'admin'}
-				<a
+				<button
 					class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-					href="/playground"
 					on:click={() => {
 						show = false;
-
 						if ($mobile) {
 							showSidebar.set(false);
 						}
+						goto('/playground');
 					}}
 				>
 					<div class=" self-center mr-3">
@@ -127,17 +126,16 @@
 						</svg>
 					</div>
 					<div class=" self-center truncate">{$i18n.t('Playground')}</div>
-				</a>
+				</button>
 
-				<a
+				<button
 					class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-					href="/admin"
 					on:click={() => {
 						show = false;
-
 						if ($mobile) {
 							showSidebar.set(false);
 						}
+						goto('/admin');
 					}}
 				>
 					<div class=" self-center mr-3">
@@ -157,7 +155,7 @@
 						</svg>
 					</div>
 					<div class=" self-center truncate">{$i18n.t('Admin Panel')}</div>
-				</a>
+				</button>
 			{/if}
 
 			{#if help}
@@ -202,7 +200,7 @@
 
 			<hr class=" border-gray-100 dark:border-gray-800 my-1 p-0" />
 
-			<button
+			<DropdownMenu.Item
 				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-50 dark:hover:bg-gray-800 transition"
 				on:click={async () => {
 					const res = await userSignOut();
@@ -233,7 +231,7 @@
 					</svg>
 				</div>
 				<div class=" self-center truncate">{$i18n.t('Sign Out')}</div>
-			</button>
+			</DropdownMenu.Item>
 
 			{#if $activeUserIds?.length > 0}
 				<hr class=" border-gray-100 dark:border-gray-800 my-1 p-0" />
